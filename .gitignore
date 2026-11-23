@@ -1,0 +1,24 @@
+# Virtual environment (each teammate creates their own)
+.venv/
+venv/
+
+# Secrets
+.env
+
+# Generated data
+data/chroma/
+data/*.db
+data/bm25.pkl
+data/cache/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+data/vectors.npz
+data/baseline.pkl
+data/index_meta.json
+data/splits.json
+data/taxonomy.json
+.claude/
+data/backup_v1_1200/

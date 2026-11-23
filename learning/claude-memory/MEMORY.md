@@ -1,0 +1,1 @@
+- [HCL hackathon context](hcl-hackathon-context.md) — 3-person 6-hr IT-ticket RAG build; friend's reference repo + dataset facts

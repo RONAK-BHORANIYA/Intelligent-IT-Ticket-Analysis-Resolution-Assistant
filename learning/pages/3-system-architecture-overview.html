@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>
+<title>Ticket Assistant Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: single reading column; pipeline as a horizontal stage strip that wraps; owner-coded chips (A/B/C) carry through every section */
+:root{
+  --bg:#f6f7f9; --surface:#ffffff; --fg:#14181f; --muted:#5a6473; --line:#dde2e9;
+  --accent:#2457d6; --accent-soft:#e6edfc;
+  --a:#0f7b6c; --a-soft:#dcf2ee; --b:#7a3fc4; --b-soft:#efe6fb; --c:#b4570b; --c-soft:#fbeedd;
+  --ok:#1d7f3a; --warn:#a46a00; --crit:#b42318;
+  --display:"Space Grotesk",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1218; --surface:#171b23; --fg:#e7eaf0; --muted:#98a2b3; --line:#2a303b;
+  --accent:#7aa2ff; --accent-soft:#1c2740;
+  --a:#4fd1bd; --a-soft:#12302b; --b:#c19bff; --b-soft:#271d3a; --c:#f2a65a; --c-soft:#33240f;
+  --ok:#5cd685; --warn:#f0c04a; --crit:#ff7a6e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#171b23; --fg:#e7eaf0; --muted:#98a2b3; --line:#2a303b;
+  --accent:#7aa2ff; --accent-soft:#1c2740;
+  --a:#4fd1bd; --a-soft:#12302b; --b:#c19bff; --b-soft:#271d3a; --c:#f2a65a; --c-soft:#33240f;
+  --ok:#5cd685; --warn:#f0c04a; --crit:#ff7a6e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+main{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:2rem} h2{font-size:1.35rem} h3{font-size:1rem}
+p{margin:0;max-width:68ch}
+.eyebrow{font:500 .75rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header{display:flex;flex-direction:column;gap:10px}
+.lede{color:var(--muted);font-size:1.02rem}
+section{display:flex;flex-direction:column;gap:16px}
+code,.mono{font-family:var(--mono);font-size:.86em}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 .74rem var(--mono);padding:2px 8px;border-radius:999px;white-space:nowrap}
+.chip.A{background:var(--a-soft);color:var(--a)} .chip.B{background:var(--b-soft);color:var(--b)} .chip.C{background:var(--c-soft);color:var(--c)} .chip.S{background:var(--accent-soft);color:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+
+/* pipeline strip */
+.pipe{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;counter-reset:st}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0;border-top:3px solid var(--b)}
+.stage.A{border-top-color:var(--a)} .stage.C{border-top-color:var(--c)}
+.stage .n{font:500 .72rem var(--mono);color:var(--muted)}
+.stage h3{font-size:.95rem}
+.stage p{font-size:.84rem;color:var(--muted)}
+.stage .t{font:.72rem var(--mono);color:var(--muted);margin-top:auto}
+
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;overflow-x:auto}
+.diagram pre{margin:0}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 .72rem var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+
+/* confidence gate */
+.gate{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+@media (max-width:760px){.gate{grid-template-columns:1fr}}
+.formula{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;font:.86rem/1.7 var(--mono);overflow-x:auto;white-space:pre}
+.formula b{color:var(--accent);font-weight:500}
+.states{display:flex;flex-direction:column;gap:8px}
+.state{display:grid;grid-template-columns:130px minmax(0,1fr);gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:6px;padding:10px 12px;font-size:.86rem}
+.state.rev{border-left-color:var(--warn)} .state.esc{border-left-color:var(--crit)}
+.state strong{font:500 .8rem var(--mono)}
+.state.ok strong{color:var(--ok)} .state.rev strong{color:var(--warn)} .state.esc strong{color:var(--crit)}
+
+/* team */
+.team{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.member{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.member ul{margin:0;padding-left:18px;font-size:.86rem;color:var(--muted)}
+.member .files{font:.78rem/1.6 var(--mono);color:var(--fg);word-break:break-word}
+.timeline{display:flex;flex-direction:column;gap:6px}
+.tl{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;font-size:.88rem;padding:8px 0;border-bottom:1px dashed var(--line)}
+.tl:last-child{border-bottom:0}
+.tl .h{font:500 .8rem var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.tl .milestone{font-weight:600;color:var(--accent)}
+footer{color:var(--muted);font-size:.82rem}
+</style>
+
+<main>
+<header>
+  <span class="eyebrow">HCLTech hackathon · Use case 1 · Architecture v1</span>
+  <h1>Intelligent IT Ticket Analysis &amp; Resolution Assistant</h1>
+  <p class="lede">The assistant classifies an incoming ticket, finds similar past tickets and recommends a fix. Every fix cites a verified source, and the assistant escalates instead of guessing. The ticket corpus answers “what is this?”, a curated KB answers “how do we fix it?”, and a free LLM combines the two under a citation validator. No paid API key is needed.</p>
+  <div class="legend">
+    <span class="chip A">A · Data &amp; Eval</span>
+    <span class="chip B">B · RAG Core</span>
+    <span class="chip C">C · API, UI &amp; Audit</span>
+    <span class="chip S">Shared contract</span>
+  </div>
+</header>
+
+<section>
+  <span class="eyebrow">Request pipeline · POST /analyze · target &lt; 4 s</span>
+  <h2>Six stages, each one testable on its own</h2>
+  <div class="pipe">
+    <div class="stage"><span class="n">1 · redact.py</span><h3>Redactor</h3><p>Masks emails, IPs, employee IDs and secrets before indexing, the LLM call, storage and export.</p><span class="t">~2 ms</span></div>
+    <div class="stage A"><span class="n">2 · baseline.py</span><h3>Baseline classifier</h3><p>TF-IDF + LogReg. Used as the fallback, the agreement signal and the evaluation comparison.</p><span class="t">~10 ms</span></div>
+    <div class="stage"><span class="n">3 · retriever.py</span><h3>Hybrid retriever</h3><p>ChromaDB semantic search + BM25, combined 0.6 / 0.3 / 0.1 with metadata. Filters run as Chroma <code>where</code> clauses.</p><span class="t">~100 ms</span></div>
+    <div class="stage"><span class="n">4 · llm_provider.py</span><h3>Free LLM chain</h3><p>Groq → Gemini over free API keys, in JSON mode. Pydantic validation plus one repair retry. Can only cite the IDs it was given.</p><span class="t">1–2 s (Groq)</span></div>
+    <div class="stage"><span class="n">5 · validator.py</span><h3>Evidence validator</h3><p>Each cited ID must have been retrieved, and each excerpt must be a substring of its source. Fails → retry once, then fall back.</p><span class="t">~5 ms</span></div>
+    <div class="stage"><span class="n">6 · confidence.py</span><h3>Confidence gate</h3><p>Three independent signals → OK / NEEDS_REVIEW / ESCALATE, with the reasons stated.</p><span class="t">~1 ms</span></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">System view</span>
+  <h2>Components and storage</h2>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  subgraph UI["Streamlit UI · C"]
+    F[Ticket form + filters]
+    R[Result view + evidence]
+    FB[Feedback buttons]
+  end
+  subgraph API["FastAPI · C"]
+    A1["POST /analyze"]
+    A2["GET /search"]
+    A3["POST /feedback"]
+    A4["GET /audit/export"]
+  end
+  subgraph CORE["Pipeline · B"]
+    P0[Redactor] --> P1[Baseline] --> P2[Hybrid retriever] --> P3[LLM chain] --> P4[Validator] --> P5[Confidence gate]
+  end
+  subgraph LLM["Free LLM providers"]
+    L1[Groq · Llama 3.3 70B] -.429/timeout.-> L2[Gemini Flash]
+  end
+  P3 <--> L1
+  subgraph STORE["Storage"]
+    S1[("ChromaDB · tickets<br/>+ BM25 · A")]
+    S2[("ChromaDB · kb_articles<br/>~30 runbooks · A")]
+    S3[("SQLite<br/>analyses · feedback · kb_gaps")]
+  end
+  F --> A1 --> P0
+  P5 --> A1 --> R
+  P2 <--> S1
+  P2 <--> S2
+  A1 --> S3
+  FB --> A3 --> S3
+  A2 --> P2
+  A4 --> S3
+</pre>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">FR-05 · Confidence &amp; fallback</span>
+  <h2>The LLM's own confidence is never used alone</h2>
+  <div class="gate">
+<div class="formula"><b>score</b> = 0.35 · llm_conf
+      + 0.40 · retrieval
+      + 0.25 · agreement
+
+retrieval = 0.5 · top KB score
+          + 0.5 · mean(top-3 ticket scores)
+agreement = LLM vs baseline label
+          × neighbour label consensus</div>
+    <div class="states">
+      <div class="state ok"><strong>OK</strong><span>score ≥ 0.70, at least 1 valid citation, priority not P1.</span></div>
+      <div class="state rev"><strong>NEEDS_REVIEW</strong><span>score 0.45–0.70, any P1 ticket, any claim removed by the validator, or degraded LLM mode.</span></div>
+      <div class="state esc"><strong>ESCALATE</strong><span>score &lt; 0.45, no valid evidence, top KB score &lt; 0.30 (knowledge gap), or the LLM reports insufficient evidence. Returns the suggested assignment group and clarifying questions.</span></div>
+    </div>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Layer</th><th>Trigger</th><th>Behaviour</th></tr></thead>
+    <tbody>
+      <tr><td>L1 Normal</td><td>Valid JSON + citations</td><td>Full pipeline</td></tr>
+      <tr><td>L2 Retry</td><td>Bad JSON or zero valid citations</td><td>One repair retry, with the validator's errors added to the prompt</td></tr>
+      <tr><td>L2b Failover</td><td>Groq 429 / timeout</td><td>Same prompt sent to Gemini</td></tr>
+      <tr><td>L3 Degraded</td><td>Every provider failed</td><td>Baseline labels + top KB steps verbatim, capped at NEEDS_REVIEW</td></tr>
+      <tr><td>L4 Empty</td><td>No hits above the minimum score</td><td>ESCALATE with clarifying questions</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <span class="eyebrow">Requirement coverage</span>
+  <h2>Where each requirement is built</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>ID</th><th>Capability</th><th>Implemented in</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td class="num">FR-01</td><td>Classification + confidence</td><td><code>llm.py</code> (closed label set, Pydantic-checked), <code>baseline.py</code>, priority rules</td><td><span class="chip B">B</span> <span class="chip A">A</span></td></tr>
+      <tr><td class="num">FR-02</td><td>Duplicate &amp; similarity</td><td><code>retriever.py</code>, flagged as duplicate when cos ≥ 0.85 and same category</td><td><span class="chip B">B</span></td></tr>
+      <tr><td class="num">FR-03</td><td>Resolution recommendation</td><td>KB runbooks + resolved neighbours → ranked paths</td><td><span class="chip B">B</span> <span class="chip A">A</span></td></tr>
+      <tr><td class="num">FR-04</td><td>Evidence &amp; traceability</td><td><code>validator.py</code>: source ID, verbatim excerpt, reason</td><td><span class="chip B">B</span></td></tr>
+      <tr><td class="num">FR-05</td><td>Confidence &amp; fallback</td><td><code>confidence.py</code>, fallback layers L1–L4</td><td><span class="chip B">B</span></td></tr>
+      <tr><td class="num">FR-06</td><td>Analyst feedback</td><td><code>POST /feedback</code>: useful / incorrect / unresolved for each item</td><td><span class="chip C">C</span></td></tr>
+      <tr><td class="num">FR-07</td><td>Search &amp; filtering</td><td><code>SearchFilters</code> → Chroma <code>where</code> clause, also applied to BM25</td><td><span class="chip C">C</span> <span class="chip B">B</span></td></tr>
+      <tr><td class="num">FR-08</td><td>Audit-friendly output</td><td>SQLite <code>analyses</code> + <code>feedback</code>; redacted CSV/JSON export</td><td><span class="chip C">C</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <span class="eyebrow">Team · 3 branches · built in one chat</span>
+  <h2>Who owns what</h2>
+  <div class="team">
+    <div class="member"><span class="chip A">A · feat/data-eval</span><h3>Data &amp; Eval</h3>
+      <div class="files">loader.py · build_index.py · generate.py · kb/articles.json · baseline.py · eval/run_eval.py</div>
+      <ul><li>Dataset adapter + synthetic fallback</li><li>~30 curated KB runbooks</li><li>EVALUATION.md, EXAMPLES.md</li></ul></div>
+    <div class="member"><span class="chip B">B · feat/rag-core</span><h3>RAG Core</h3>
+      <div class="files">redact.py · retriever.py · llm_provider.py · llm.py · validator.py · confidence.py · pipeline.py</div>
+      <ul><li>ChromaDB + BM25 hybrid retrieval, multilingual embeddings</li><li>Groq → Gemini chain, JSON repair</li><li>Citation validation, confidence gate</li></ul></div>
+    <div class="member"><span class="chip C">C · feat/api-ui</span><h3>API, UI &amp; Audit</h3>
+      <div class="files">api.py · db.py · ui/app.py · README.md · requirements.txt</div>
+      <ul><li>FastAPI endpoints + SQLite</li><li>Streamlit analyst view</li><li>Feedback, audit export, README</li></ul></div>
+  </div>
+  <div class="timeline">
+    <div class="tl"><span class="h">0:00–1:00</span><span><span class="chip S">shared</span> Architecture; <code>schema.py</code>, <code>taxonomy.py</code> and <code>config.py</code> to <code>main</code> by 0:45</span></div>
+    <div class="tl"><span class="h">1:00–1:45</span><span><span class="chip A">A</span> Data loader, KB, baseline</span></div>
+    <div class="tl"><span class="h">1:45–2:45</span><span><span class="chip B">B</span> Redaction → retrieval → Claude → validator → gate</span></div>
+    <div class="tl"><span class="h">3:00</span><span class="milestone">Integration checkpoint: merge A + B, run on real data</span></div>
+    <div class="tl"><span class="h">3:00–4:15</span><span><span class="chip C">C</span> API, SQLite audit, Streamlit UI, filters, export</span></div>
+    <div class="tl"><span class="h">4:15–4:45</span><span><span class="chip A">A</span> Full evaluation run, tune weights</span></div>
+    <div class="tl"><span class="h">5:00</span><span class="milestone">Feature freeze: merge C, end-to-end test</span></div>
+    <div class="tl"><span class="h">5:00–6:00</span><span><span class="chip B">B</span> fixes · <span class="chip A">A</span> report + examples · <span class="chip C">C</span> README, tag v1.0</span></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Decisions</span>
+  <h2>Trade-offs we chose</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Decision</th><th>Chosen</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Resolution source</td><td>Curated KB, with tickets as supporting evidence</td><td>Real datasets usually lack resolution text; the brief scores traceability</td></tr>
+      <tr><td>Vector store</td><td>ChromaDB (embedded, persistent) + BM25</td><td>Built-in metadata filters, persists on disk, no server; NumPy fallback behind the same interface</td></tr>
+      <tr><td>LLM provider</td><td>Free API keys: Groq → Gemini</td><td>No paid key and nothing to run locally; rate limits handled by failover and the response cache</td></tr>
+      <tr><td>Classifier</td><td>LLM with a closed label set, plus a TF-IDF baseline</td><td>Fallback, agreement signal and a comparison for the evaluation</td></tr>
+      <tr><td>Confidence</td><td>Three combined signals</td><td>LLM self-reported confidence is poorly calibrated</td></tr>
+      <tr><td>UI ↔ core</td><td>Streamlit over FastAPI</td><td>Meets “interface or API”; the UI can be swapped later</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>Source of truth: <code>docs/ARCHITECTURE.md</code> in the repo (full schemas, SQLite tables, evaluation design). This page is the team overview.</footer>
+</main>
+
+<!-- diagrams: needs internet the first time; without it they show as text -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>if (window.mermaid) { const dark = matchMedia("(prefers-color-scheme: dark)").matches; mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "default" }); }</script>
+</body></html>

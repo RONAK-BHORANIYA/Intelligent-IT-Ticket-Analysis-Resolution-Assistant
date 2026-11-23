@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>System Design Panel Prep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same study-notebook system as the RAG study guide. Sticky contents rail; answer framework; today-vs-production diagrams; capacity maths; filterable question bank with quiz mode */
+:root{
+  --bg:#f5f7f8; --paper:#ffffff; --ink:#15202b; --muted:#566573; --line:#d9e1e6;
+  --accent:#0b6e8a; --accent-soft:#e0f1f6;
+  --mark:#fff1b8; --mark-ink:#5c4400;
+  --good:#1e7a46; --good-soft:#e2f4ea; --warn:#9a6400; --bad:#b3261e; --code-bg:#eef2f4;
+  --display:"Space Grotesk",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1418; --paper:#151d22; --ink:#e4ebef; --muted:#97a6b0; --line:#26323a;
+  --accent:#5cc3e0; --accent-soft:#12303a; --mark:#4a3b0c; --mark-ink:#ffe08a;
+  --good:#5fd394; --good-soft:#123222; --warn:#f0c04a; --bad:#ff8a80; --code-bg:#0f171c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --paper:#151d22; --ink:#e4ebef; --muted:#97a6b0; --line:#26323a;
+  --accent:#5cc3e0; --accent-soft:#12303a; --mark:#4a3b0c; --mark-ink:#ffe08a;
+  --good:#5fd394; --good-soft:#123222; --warn:#f0c04a; --bad:#ff8a80; --code-bg:#0f171c; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 72px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}.toc{display:none}}
+.toc{position:sticky;top:16px;align-self:start;font-size:.86rem;display:flex;flex-direction:column;gap:2px;max-height:calc(100vh - 40px);overflow:auto}
+.toc a{color:var(--muted);text-decoration:none;padding:3px 8px;border-radius:4px}
+.toc a:hover,.toc a:focus-visible{color:var(--ink);background:var(--accent-soft);outline:none}
+.toc .grp{font:500 .7rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 8px 4px}
+main{display:flex;flex-direction:column;gap:52px;min-width:0}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:2.2rem} h2{font-size:1.5rem} h3{font-size:1.1rem}
+p{margin:0;max-width:72ch}
+section{display:flex;flex-direction:column;gap:16px;scroll-margin-top:20px}
+.eyebrow{font:500 .74rem var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:1.06rem;color:var(--muted)}
+code{font-family:var(--mono);font-size:.86em;background:var(--code-bg);padding:1px 5px;border-radius:4px}
+ul,ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px;max-width:72ch}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 .7rem var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+.diagram{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px;overflow-x:auto}
+.diagram pre{margin:0}
+.frame{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.frame{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:420px){.frame{grid-template-columns:1fr}}
+.frame div{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.frame b{font-family:var(--display);color:var(--accent)}
+.frame span{font-size:.9rem}
+.example{border-left:4px solid var(--accent);background:var(--paper);padding:12px 16px;border-radius:0 8px 8px 0;font-size:.95rem;max-width:80ch}
+.calc{font:.86rem/1.75 var(--mono);background:var(--code-bg);border-radius:8px;padding:12px 16px;overflow-x:auto}
+.calc b{color:var(--accent)}
+.note{font-size:.9rem;color:var(--muted)}
+.note strong{color:var(--warn)}
+.say{background:var(--mark);color:var(--mark-ink);border-radius:6px;padding:10px 12px;font-size:.92rem;max-width:80ch}
+.say::before{content:"Say it to judges: ";font-weight:600}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.controls input[type=search]{flex:1 1 260px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit}
+.controls input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{font:500 .85rem var(--body);border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 12px;border-radius:999px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.stats{font:.82rem var(--mono);color:var(--muted)}
+.qlist{display:flex;flex-direction:column;gap:8px}
+.q{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.q.known{border-left:4px solid var(--good)}
+.qhead{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:start}
+.qn{font:500 .8rem var(--mono);color:var(--muted);padding-top:2px;font-variant-numeric:tabular-nums}
+.qt{font-weight:600}
+.qc{font:.7rem var(--mono);color:var(--accent);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:2px;font-weight:500}
+.qa{margin-left:54px;font-size:.94rem;max-width:76ch}
+@media (max-width:560px){.qa{margin-left:0}.qhead{grid-template-columns:36px minmax(0,1fr)}.qbtns{grid-column:1/-1}}
+.qbtns{display:flex;gap:6px}
+.qbtns button{padding:4px 10px;font-size:.78rem}
+.empty{color:var(--muted);padding:20px;text-align:center;border:1px dashed var(--line);border-radius:8px}
+@media (prefers-reduced-motion: no-preference){html{scroll-behavior:smooth}}
+</style></head><body>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <span class="grp">Start here</span>
+  <a href="#frame">How to answer</a>
+  <a href="#today">Our design today</a>
+  <a href="#prod">Production design</a>
+  <a href="#choices">Technology choices</a>
+  <a href="#capacity">Capacity maths</a>
+  <a href="#limits">Rate limiting</a>
+  <a href="#security">Security layers</a>
+  <span class="grp">Practice</span>
+  <a href="#questions">Question bank</a>
+</nav>
+
+<main>
+<header style="display:flex;flex-direction:column;gap:12px">
+  <span class="eyebrow">Panel prep · high-level design · IT Ticket Assistant</span>
+  <h1>System Design Panel Prep</h1>
+  <p class="lede">Questions judges ask about architecture: why each technology, how it scales, how it handles traffic and rate limits, and how it stays secure. Every answer starts from what we actually built and measured, then says how we would take it to production.</p>
+</header>
+
+<!-- ============ FRAME ============ -->
+<section id="frame">
+  <span class="eyebrow">Method</span>
+  <h2>Answer every design question in four beats</h2>
+  <div class="frame">
+    <div><b>1 · What we did</b><span>Name the exact choice in our build.</span></div>
+    <div><b>2 · Why</b><span>The constraint that drove it: 6 hours, no paid key, 7.8 GB laptop, needs filters…</span></div>
+    <div><b>3 · The limit</b><span>Where it breaks. Judges trust teams that know their limits.</span></div>
+    <div><b>4 · How we'd scale it</b><span>The production upgrade, behind the same interface.</span></div>
+  </div>
+  <div class="example"><b>Example: "Why SQLite?"</b> We store the audit log in SQLite <i>(what)</i> because it needs zero setup and is one file, which suits a 6-hour build <i>(why)</i>. It allows only one writer at a time, so it won't handle many API servers <i>(limit)</i>. In production we'd move to PostgreSQL. Our <code>db.py</code> uses plain SQL with parameters, so the change is small <i>(scale)</i>.</div>
+</section>
+
+<!-- ============ TODAY ============ -->
+<section id="today">
+  <span class="eyebrow">Architecture</span>
+  <h2>Our design today (hackathon)</h2>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+    U[Analyst browser] --> S[Streamlit UI<br/>ui/app.py]
+    S -->|HTTP JSON| API[FastAPI<br/>app/api.py]
+    API --> P[Pipeline<br/>redact, baseline, retrieve,<br/>LLM, validate, gate]
+    P --> C[(ChromaDB embedded<br/>HNSW, cosine)]
+    P --> B[(BM25 in memory)]
+    P --> K[(Disk cache<br/>data/cache/llm)]
+    P -->|HTTPS, JSON mode| G[Groq<br/>gpt-oss-120b]
+    G -.->|429 / 503 / error| GM[Gemini<br/>3.5 flash]
+    API --> D[(SQLite audit<br/>analyses, feedback, kb_gaps)]
+  </pre></div>
+  <p>One API process with everything embedded, one Streamlit process, and two external free LLM APIs. The API is <b>stateless per request</b>: all state lives in ChromaDB, BM25 files, the cache and SQLite. That's what makes it easy to scale out later.</p>
+</section>
+
+<!-- ============ PROD ============ -->
+<section id="prod">
+  <span class="eyebrow">Architecture</span>
+  <h2>How we'd run it in production</h2>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+    U[Users / ITSM webhook] --> GW[API gateway<br/>TLS, SSO, rate limit]
+    GW --> LB[Load balancer]
+    LB --> A1[API replica 1]
+    LB --> A2[API replica 2]
+    LB --> A3[API replica N]
+    A1 & A2 & A3 --> R[(Redis<br/>LLM cache, rate counters)]
+    A1 & A2 & A3 --> V[(Vector DB service<br/>Qdrant / pgvector / Chroma server)]
+    A1 & A2 & A3 --> OS[(OpenSearch<br/>BM25 keyword index)]
+    A1 & A2 & A3 --> PG[(PostgreSQL<br/>audit, feedback)]
+    A1 & A2 & A3 --> Q[[Queue<br/>bulk + low priority]]
+    Q --> W[Workers]
+    A1 & A2 & A3 & W --> LLM[Enterprise LLM endpoint<br/>+ failover provider]
+    ING[Nightly ingest<br/>new resolved tickets] --> V
+    ING --> OS
+    A1 & A2 & A3 --> M[Metrics, traces, logs<br/>Prometheus / OpenTelemetry]
+  </pre></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Concern</th><th>Hackathon</th><th>Production</th></tr></thead>
+    <tbody>
+      <tr><td>API</td><td>1 uvicorn process</td><td>N stateless replicas behind a load balancer; autoscale on CPU and queue depth</td></tr>
+      <tr><td>Vector search</td><td>ChromaDB embedded on disk</td><td>Vector DB as a service (Chroma server, Qdrant, pgvector, Milvus), replicated</td></tr>
+      <tr><td>Keyword search</td><td>BM25 in memory (rank_bm25)</td><td>OpenSearch / Elasticsearch inverted index, or sparse vectors in the vector DB</td></tr>
+      <tr><td>Audit DB</td><td>SQLite file</td><td>PostgreSQL with backups and read replicas</td></tr>
+      <tr><td>LLM cache</td><td>JSON files on disk</td><td>Redis shared by all replicas, with expiry</td></tr>
+      <tr><td>LLM</td><td>Free Groq → Gemini</td><td>Paid enterprise endpoint with no-training, data-residency terms; second provider for failover</td></tr>
+      <tr><td>Auth</td><td>None (demo)</td><td>SSO (OAuth2 / OIDC), roles, per-role visibility filter in retrieval</td></tr>
+      <tr><td>Rate limiting</td><td>Outbound only (wait once, failover)</td><td>Inbound per-user token bucket at the gateway + outbound concurrency limit + circuit breaker</td></tr>
+      <tr><td>Index updates</td><td>Full rebuild in about 30 s</td><td>Incremental nightly upsert of newly resolved tickets</td></tr>
+      <tr><td>Monitoring</td><td>Per-stage <code>timings_ms</code>, <code>/stats</code>, audit export</td><td>Dashboards for p95 latency, error rate, escalation rate, token use, feedback "incorrect" rate</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ CHOICES ============ -->
+<section id="choices">
+  <span class="eyebrow">Why this technology</span>
+  <h2>Every choice, its reason, and the alternative</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Layer</th><th>We chose</th><th>Why</th><th>Alternatives considered</th><th>Limit</th></tr></thead>
+    <tbody>
+      <tr><td>API</td><td>FastAPI</td><td>Pydantic validation on every request, automatic <code>/docs</code>, async-ready, Python like the ML code</td><td>Flask, Django</td><td>Python process per replica; scale by adding replicas</td></tr>
+      <tr><td>UI</td><td>Streamlit</td><td>A working UI in about an hour, all Python; it talks to the API over HTTP so it can be swapped</td><td>React, Gradio</td><td>Not built for many concurrent users or custom UX</td></tr>
+      <tr><td>Vector store</td><td>ChromaDB (HNSW, cosine)</td><td>Built-in metadata filters (<code>where</code>), saves to disk, no server to run</td><td>FAISS (no filters/persistence), pgvector, Qdrant</td><td>Embedded = one machine</td></tr>
+      <tr><td>Keyword search</td><td>BM25 (rank_bm25)</td><td>Chroma has no keyword search; error codes like <code>0x80070005</code> need exact matching</td><td>Elasticsearch / OpenSearch</td><td>Scores every document per query: fine for thousands, slow for millions</td></tr>
+      <tr><td>Embeddings</td><td>multilingual MiniLM-L12 (384-d)</td><td>Runs on CPU, handles Italian/Spanish tickets, small (about 470 MB)</td><td>OpenAI / Gemini embedding APIs, bigger models</td><td>Reads only the first 128 tokens</td></tr>
+      <tr><td>LLM</td><td>Groq gpt-oss-120b → Gemini 3.5 Flash</td><td>Free, fast, OpenAI-compatible so one client works for both; failover absorbs rate limits</td><td>Paid OpenAI/Claude; local Ollama (rejected: 7.8 GB RAM)</td><td>Free tiers: about 8,000 tokens/min on Groq</td></tr>
+      <tr><td>Validation</td><td>Pydantic + our validator</td><td>Open models are less reliable at strict JSON; code checks are free and certain</td><td>Trust the model; LLM-as-judge</td><td>Checks quotes, not whether the advice is good</td></tr>
+      <tr><td>Classifier baseline</td><td>TF-IDF + LogisticRegression</td><td>Millisecond fallback, independent second opinion, evaluation baseline</td><td>LLM only</td><td>Weaker on wording it hasn't seen</td></tr>
+      <tr><td>Audit</td><td>SQLite</td><td>Zero setup, one file, SQL export</td><td>PostgreSQL</td><td>One writer at a time</td></tr>
+      <tr><td>Orchestration</td><td>Plain Python (no LangChain)</td><td>Fewer dependencies, every step visible and testable, easy to explain</td><td>LangChain, LlamaIndex</td><td>We write the glue ourselves</td></tr>
+      <tr><td>Knowledge</td><td>RAG over a curated KB</td><td>Updates instantly, gives citations, no training cost</td><td>Fine-tuning</td><td>Answers are only as good as the KB</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ CAPACITY ============ -->
+<section id="capacity">
+  <span class="eyebrow">Back-of-envelope</span>
+  <h2>Capacity maths you can do on a whiteboard</h2>
+  <p>These numbers come from our own measurements on the laptop (960 indexed tickets, Groq free tier). Say where each number comes from.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Measured</th><th>Value</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Redact + baseline + retrieval</td><td>about 35 ms per ticket</td><td><code>timings_ms</code>, EVALUATION.md p50 33 ms</td></tr>
+      <tr><td>Full analysis with live LLM</td><td>about 2.5 s</td><td>live test of a new ticket</td></tr>
+      <tr><td>Prompt size</td><td>about 6,600 characters ≈ 1,700 tokens, plus up to 1,000 reserved for the answer</td><td>measured prompt for demo 1</td></tr>
+      <tr><td>Groq free limit</td><td>8,000 tokens per minute</td><td>Groq's 429 error message</td></tr>
+      <tr><td>Embedding speed (CPU)</td><td>about 85 tickets per second</td><td>960 tickets embedded in about 11 s</td></tr>
+    </tbody>
+  </table></div>
+  <div class="calc">
+<b>Throughput on the free tier</b><br>
+8,000 tokens/min ÷ about 2,700 tokens per ticket ≈ <b>3 tickets per minute</b> per key → fine for a demo, not for a service desk.<br><br>
+<b>A real service desk: 10,000 tickets/day</b><br>
+10,000 ÷ (8 working hours × 60) ≈ 21 tickets/min on average; Monday-morning peak ×3 ≈ <b>63 tickets/min</b><br>
+63 × 2,700 tokens ≈ <b>170,000 tokens/min</b> → needs a paid tier with a higher limit, plus caching and duplicate collapsing.<br><br>
+<b>Concurrency (Little's law)</b><br>
+in-flight requests = arrival rate × time each takes = (63 ÷ 60) per s × 2.5 s ≈ <b>3 at once</b> → 2–3 API replicas are plenty; the LLM limit is the bottleneck, not our servers.<br><br>
+<b>Vector memory at 1 million tickets</b><br>
+1,000,000 × 384 numbers × 4 bytes ≈ <b>1.5 GB</b> of vectors, plus HNSW graph links → fits in RAM on one vector-DB node.<br><br>
+<b>Re-embedding 1 million tickets</b><br>
+1,000,000 ÷ 85 per s ≈ 11,800 s ≈ <b>3.3 hours</b> on one CPU → so we upsert only new tickets nightly, or use a GPU.</div>
+  <p class="say">Retrieval takes 35 milliseconds; the LLM takes 2.5 seconds and is rate-limited. So we scale by protecting and reducing LLM calls (cache, duplicate collapsing, skipping the LLM when the classifier is very confident) far more than by adding servers.</p>
+</section>
+
+<!-- ============ RATE LIMITS ============ -->
+<section id="limits">
+  <span class="eyebrow">Traffic</span>
+  <h2>Rate limiting works in two directions</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Direction</th><th>Problem</th><th>Built today</th><th>Production</th></tr></thead>
+    <tbody>
+      <tr><td><b>Outbound</b> (us → LLM)</td><td>Provider limits: tokens and requests per minute</td><td>Smaller prompt (3 KB + 5 tickets), disk cache, wait once if <code>Retry-After</code> ≤ 15 s, then fail over to Gemini, then degraded mode; 25 s timeout</td><td>Concurrency limit (semaphore) on LLM calls, exponential backoff with jitter, circuit breaker per provider, shared Redis cache, paid tier sized from the maths above</td></tr>
+      <tr><td><b>Inbound</b> (users → us)</td><td>Abuse, scripts, runaway clients, spikes</td><td>Input validation: description 3–8,000 characters, typed fields (Pydantic)</td><td>Token bucket per user / API key at the gateway (e.g. 30 requests/min, burst 10), HTTP 429 with <code>Retry-After</code>, queue for bulk jobs, P1 tickets first</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Algorithm</th><th>How it works</th><th>Good for</th></tr></thead>
+    <tbody>
+      <tr><td>Fixed window</td><td>Count requests per clock minute; reset at :00</td><td>Simple; allows a double burst at the window edge</td></tr>
+      <tr><td>Sliding window</td><td>Count requests in the last 60 s</td><td>Smoother and fairer than fixed</td></tr>
+      <tr><td><b>Token bucket</b></td><td>A bucket refills at a steady rate; each request takes a token; an empty bucket means 429</td><td>Allows short bursts but caps the average. The usual API choice; Groq-style limits behave like this</td></tr>
+      <tr><td>Leaky bucket</td><td>Requests queue and leave at a fixed rate</td><td>Smoothing traffic towards a strict downstream limit like an LLM</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note"><strong>Be careful with one answer:</strong> in the hackathon each teammate uses <i>their own</i> free key. In production you don't rotate many keys to get around a provider's limits; you buy the right tier. Judges notice the difference.</p>
+</section>
+
+<!-- ============ SECURITY ============ -->
+<section id="security">
+  <span class="eyebrow">Security</span>
+  <h2>Security, layer by layer</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Layer</th><th>Threat</th><th>Built today</th><th>Production addition</th></tr></thead>
+    <tbody>
+      <tr><td>Data</td><td>Personal data leaking to the LLM, logs or exports</td><td>Regex redaction before indexing, LLM, storage and export; only the <i>types</i> removed are kept</td><td>NER-based PII detection (e.g. Presidio), encryption at rest, retention policy</td></tr>
+      <tr><td>LLM input</td><td>Prompt injection in a ticket or KB page</td><td>Tags + "data, not instructions", fake closing tags stripped, rule priority floor, closed label list</td><td>Injection classifier on input, red-team test set in CI</td></tr>
+      <tr><td>LLM output</td><td>Made-up sources, invented labels</td><td>Validator: retrieved IDs only, word-for-word quotes, taxonomy labels; P1 and dropped claims → human review</td><td>Same, plus output content filter</td></tr>
+      <tr><td>Actions</td><td>The AI doing damage</td><td><b>Read-only advisor</b>: no tools, no auto-close, no remediation</td><td>Any future action needs human approval and least privilege</td></tr>
+      <tr><td>API</td><td>Bad input, oversized payloads, SQL injection</td><td>Pydantic types and size limits; parameterised SQL in <code>db.py</code>; 404 for unknown analysis IDs</td><td>Auth on every route, gateway rate limits, WAF, CORS allow-list</td></tr>
+      <tr><td>Identity</td><td>Anyone can call the API</td><td>None (demo)</td><td>SSO via OAuth2 / OIDC, roles (analyst, admin), retrieval filtered by the caller's visibility</td></tr>
+      <tr><td>Secrets</td><td>Keys leaking to GitHub</td><td><code>.env</code> is git-ignored; <code>.env.example</code> has no values</td><td>Secret manager (Vault, Azure Key Vault), rotation, per-environment keys</td></tr>
+      <tr><td>Transport</td><td>Snooping</td><td>LLM calls over HTTPS; local demo over http://localhost</td><td>TLS everywhere, private networking to the DBs</td></tr>
+      <tr><td>Provider terms</td><td>Free tiers may use submitted data</td><td>Synthetic data + redaction before every call</td><td>Enterprise endpoint with no-training, no-retention, data-residency terms</td></tr>
+      <tr><td>Audit</td><td>"Who saw what, why did it say that?"</td><td>Every analysis stored with provider, model, evidence and feedback; CSV/JSON export</td><td>Immutable log store, access logging</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ QUESTIONS ============ -->
+<section id="questions">
+  <span class="eyebrow">Practice bank</span>
+  <h2>System design questions judges may ask</h2>
+  <p>Answers are written to be said aloud. Use <b>Quiz mode</b> to hide answers, try first, then reveal. Mark the ones you know; progress is saved in this browser.</p>
+  <div class="controls">
+    <label for="qsearch" style="position:absolute;left:-9999px">Search questions</label>
+    <input id="qsearch" type="search" placeholder="Search… e.g. scale, 429, SQLite, injection, Redis">
+    <button id="quiz" aria-pressed="false" type="button">Quiz mode: hide answers</button>
+    <button id="shuffle" type="button">Shuffle</button>
+    <button id="unknownOnly" aria-pressed="false" type="button">Only not-yet-known</button>
+  </div>
+  <div class="chips" id="chips" role="group" aria-label="Filter by topic"></div>
+  <div class="stats" id="stats"></div>
+  <div class="qlist" id="qlist"></div>
+  <p class="note"><a href="#frame" style="color:var(--accent)">Back to top</a></p>
+</section>
+</main>
+</div>
+
+<script>
+const Q = [
+["Technology choices","Walk me through your architecture in 30 seconds.","A Streamlit UI calls a FastAPI service. For each ticket the API runs our pipeline: redact personal data, a fast baseline classifier, hybrid search over ChromaDB and BM25, one LLM call to Groq with Gemini as backup, a code validator for every citation, and a confidence gate that decides OK, review or escalate. Results and feedback go to a SQLite audit log."],
+["Technology choices","Why FastAPI?","Every request and response is validated by Pydantic models from our shared schema, we get interactive API docs at /docs for free, it supports async, and it's Python like the rest of our ML code. Flask would need validation added by hand; Django is heavier than we need."],
+["Technology choices","Why Streamlit for the UI?","It let one person build a complete UI in about an hour in Python. It calls our API over HTTP and doesn't import the pipeline, so in production we could replace it with React or embed the API in ServiceNow without changing the backend."],
+["Technology choices","Why ChromaDB and not FAISS?","We needed metadata filters for status, application, environment and dates, and an index that persists to disk. Chroma has both built in, with HNSW and cosine distance. FAISS is a fast library, but it has no metadata filtering or persistence of its own, so we'd have had to build that."],
+["Technology choices","Why not pgvector or Qdrant?","Both need a server. In 6 hours an embedded store with no server was the safer choice. Our retriever hides the store behind one interface, and we even have a numpy fallback behind the same interface, so moving to pgvector or Qdrant later is a contained change."],
+["Technology choices","Why do you need BM25 if you have embeddings?","Embeddings capture meaning but blur exact strings. Error codes like 0x80070005, ORA-12541 or 809 need exact keyword matching. Our evaluation showed hybrid beat either one alone on recall and on picking the right KB article."],
+["Technology choices","Why this embedding model?","paraphrase-multilingual-MiniLM-L12-v2: 384 dimensions, runs on a laptop CPU, handles the Italian and Spanish tickets, and is about 470 MB. Its limit is 128 tokens, so we keep chunks short."],
+["Technology choices","Why Groq and Gemini?","No paid key was allowed. Both have free tiers and both expose an OpenAI-compatible API, so one client works for both and failover is just a different base URL. Groq is very fast; Gemini is the backup when Groq rate-limits."],
+["Technology choices","Why not run an LLM locally with Ollama?","Our laptops have 7.8 GB of RAM. A useful local model would compete with the embedding model and the app for memory and be slow on CPU. Free hosted APIs were faster and more capable."],
+["Technology choices","Why not use LangChain?","Our pipeline is eight small, explicit steps. Plain Python kept dependencies low and made every step visible, testable and easy to explain, especially the validator and confidence gate, which are our own logic anyway."],
+["Technology choices","Why RAG instead of fine-tuning?","Fixes change often; with RAG a new KB article works instantly with no training. RAG also gives citations we can verify, and it costs nothing to update. Fine-tuning teaches style, not up-to-date facts."],
+["Technology choices","Why SQLite for the audit log?","Zero setup and a single file, which suits a 6-hour build and a single API process. Its limit is one writer at a time. In production we'd use PostgreSQL; our db.py uses parameterised SQL, so the change is small."],
+["Technology choices","Why a TF-IDF baseline if you have an LLM?","Three jobs: an instant fallback when the LLM is down, an independent second opinion for the confidence score, and a baseline to prove the LLM adds value in our evaluation."],
+["Technology choices","Why a curated KB instead of learning fixes from tickets?","Real ticket datasets usually have no reliable resolution text. Inventing fixes from ticket descriptions would be guessing. Past tickets are evidence of similarity; the KB is the source of fixes."],
+["Technology choices","What would you change with more time?","Add authentication, move to PostgreSQL and a vector DB server, put a shared Redis cache in front of the LLM, add a queue for bulk processing, add monitoring dashboards, and run the LLM evaluation on a larger sample."],
+
+["Scaling","How does your system scale horizontally?","The API is stateless per request: all state is in the vector store, keyword index, cache and database. So we run N identical API replicas behind a load balancer and add more as traffic grows. Each replica loads the embedding model once, about 0.5 to 1 GB of RAM."],
+["Scaling","What is the bottleneck?","The LLM, not our servers. Retrieval takes about 35 ms; an LLM call takes about 2.5 s and is rate-limited by the provider. So scaling is mostly about reducing and protecting LLM calls."],
+["Scaling","How would you handle 10,000 tickets a day?","That's about 21 per minute on average and maybe 60 at a Monday peak, roughly 170,000 tokens per minute. We'd buy a paid LLM tier sized for that, cache repeated tickets, collapse duplicates during outages, and skip the LLM when the baseline is very confident and retrieval is strong."],
+["Scaling","How many API servers would you need?","By Little's law, in-flight requests = arrival rate × time per request. At 1 ticket per second and 2.5 s each, that's about 3 at once. Two or three replicas handle that comfortably; we'd keep at least two for availability."],
+["Scaling","What happens when the ticket history grows to a million?","Vectors are about 1.5 GB plus HNSW links, which still fits on one vector-DB node. BM25 in Python scores every document per query, which gets slow at that size, so keyword search would move to OpenSearch's inverted index."],
+["Scaling","How do you add new tickets to the index?","Today we rebuild everything in about 30 seconds. In production, a nightly job would embed only newly resolved tickets and upsert them into the vector DB and keyword index. Re-embedding a million tickets on one CPU would take about 3 hours, so incremental updates matter."],
+["Scaling","Would you process tickets synchronously or with a queue?","Interactive analysis by an analyst: synchronous, about 2.5 s. Bulk jobs like re-analysing a backlog or auto-triaging incoming tickets: a queue with workers, so a spike never blocks the interactive path, and P1 tickets jump the queue."],
+["Scaling","How does caching help scaling?","Identical prompts return the saved answer instantly with no LLM call. Today the cache is files on disk; with several replicas we'd move it to Redis so all replicas share it."],
+["Scaling","Could you scale the embedding model?","Yes: batch requests, run on a GPU, or move to a hosted embedding API. Queries are one short text each, so on CPU it's milliseconds; it only matters for bulk re-indexing."],
+["Scaling","How would you support multiple companies or teams?","Either one collection per tenant, or a tenant_id metadata field applied as a mandatory filter on every search. Keys, quotas and audit logs per tenant."],
+["Scaling","Vertical or horizontal scaling?","Horizontal for the API, because it's stateless. Vertical for the vector DB at first (more RAM), then sharding or replicas when one node isn't enough."],
+["Scaling","When would you switch the index type from HNSW?","HNSW is great up to tens of millions of vectors in RAM. If memory becomes the limit, IVF-PQ compresses vectors heavily at some accuracy cost, or disk-based indexes like DiskANN."],
+
+["Traffic & rate limits","How do you handle the LLM provider's rate limit?","Four layers. First, a smaller prompt: 3 KB articles and 5 tickets. Second, a cache, so repeated prompts cost nothing. Third, on a 429 or 503 we read Retry-After and wait once if it's short, otherwise fail over to Gemini. Fourth, if everything fails, degraded mode still answers from the classifier and KB."],
+["Traffic & rate limits","What did you observe about Groq's limits?","The free tier allowed 8,000 tokens per minute. Our first prompt used about 3,500 tokens per ticket including the reserved answer, so only 2 to 3 tickets fit per minute. We shrank the prompt and reserved less answer space."],
+["Traffic & rate limits","How would you rate-limit users of your API?","A token bucket per user or API key at the API gateway, for example 30 requests per minute with bursts of 10. Over the limit returns HTTP 429 with a Retry-After header. Bulk clients get a queue instead."],
+["Traffic & rate limits","Explain token bucket vs leaky bucket.","Token bucket: tokens refill at a steady rate and each request spends one, so short bursts are allowed but the average is capped. Leaky bucket: requests queue and leave at a fixed rate, smoothing output. Token bucket suits our API; leaky bucket suits feeding a strict downstream like an LLM."],
+["Traffic & rate limits","Fixed window vs sliding window?","Fixed window counts per clock minute and can allow double traffic at the boundary. Sliding window counts the last 60 seconds and is smoother. Most gateways use sliding window or token bucket."],
+["Traffic & rate limits","What is backoff with jitter?","After a failure, wait longer each retry (1 s, 2 s, 4 s…) and add randomness, so many clients don't retry at the same instant and cause another spike. We do a single bounded wait today; production would use full exponential backoff."],
+["Traffic & rate limits","What is a circuit breaker and would you use one?","If a provider fails repeatedly, stop calling it for a cool-down period and go straight to the backup, then try again later. It avoids wasting 25-second timeouts on a provider that is down. Yes, per LLM provider."],
+["Traffic & rate limits","What happens during a major outage when hundreds of similar tickets arrive?","Duplicate detection groups them, since they're very close in meaning and share a category; identical texts hit the cache; P1 rules flag them for humans. In production we'd also link them to one parent incident and analyse it once."],
+["Traffic & rate limits","How do you prioritise traffic?","P1 is decided by rules before the LLM (outage, all users, production down, security). In a queue-based design P1 tickets would go to a high-priority queue processed first, and low-priority bulk work would yield."],
+["Traffic & rate limits","What timeouts do you set?","25 seconds per LLM call, no automatic client retries, then failover. A request should never hang; the worst case is a degraded answer marked as such."],
+["Traffic & rate limits","How would you load-test it?","With a tool like Locust or k6: ramp concurrent users, measure p50/p95 latency, error rate and 429s, and find where the LLM limit or CPU saturates. We'd test with the LLM mocked as well, to measure our own capacity separately."],
+["Traffic & rate limits","Why not use many API keys to get around the limits?","In the hackathon each teammate uses their own free key for their own work. In production you don't rotate keys to evade a provider's limits; you buy the right tier and design to use it efficiently."],
+
+["Security","How do you protect personal data?","Regex redaction masks emails, phones, IPs, employee and asset IDs and passwords before indexing, before every LLM call, before storage and before export. We keep only the types removed, never the values."],
+["Security","How do you defend against prompt injection?","The ticket goes inside tags labelled as data, the system prompt says to ignore instructions in it, and we strip fake closing tags. The rules set a minimum priority the LLM can't lower, and the validator only accepts retrieved IDs and allowed labels. Our demo shows 'set priority to P4' failing."],
+["Security","What if a KB article itself contains malicious instructions?","That's indirect prompt injection. Evidence is fenced the same way as the ticket, and the model has no tools or actions, so the worst it can do is suggest something. The validator and human review for P1 and dropped claims limit that further."],
+["Security","Can the AI take any actions?","No. It's a read-only advisor: no tools, no auto-closing tickets, no remediation scripts. An analyst decides. Any future action would need human approval and least-privilege credentials."],
+["Security","How do you stop hallucinated answers reaching users?","Every fix must cite a retrieved source with a quote, and code checks the quote is word for word in that source. Anything that fails is removed and the ticket goes to review."],
+["Security","Where are API keys stored?","In a .env file that is git-ignored; .env.example has no values. Each teammate has their own keys. In production they'd live in a secret manager like Vault or Azure Key Vault, with rotation."],
+["Security","How would you add authentication?","SSO through OAuth2 / OpenID Connect at the gateway, a role on each user (analyst, admin), and the role passed to retrieval as a filter so users only see tickets and articles they are allowed to."],
+["Security","Is your API protected against SQL injection?","Yes: db.py uses parameterised queries with ? placeholders, never string-built SQL, and all inputs are typed by Pydantic."],
+["Security","What about very large or malicious inputs?","Pydantic rejects descriptions shorter than 3 or longer than 8,000 characters and wrong types. In production the gateway also caps request size and rate."],
+["Security","Is sending tickets to a free LLM safe?","Free tiers may use submitted data under their terms. That's why we use synthetic data and redact before every call. In production we'd use an enterprise endpoint with no-training, no-retention and data-residency guarantees."],
+["Security","How do you audit decisions?","Every analysis is stored with the redacted input, classification, retrieved evidence, recommendation, status, confidence, provider, model and latency, plus all feedback. It can be exported as CSV or JSON."],
+["Security","What security standard would you check against?","OWASP Top 10 for the web API, and the OWASP Top 10 for LLM applications: prompt injection, insecure output handling, sensitive data disclosure, excessive agency. We address the LLM ones with fencing, validation, redaction and a read-only design."],
+["Security","How do you keep dependencies secure?","Pin versions in requirements.txt, scan with a tool like pip-audit in CI, and update regularly. The virtual environment isolates the project."],
+["Security","Is data encrypted?","LLM calls use HTTPS. The local demo runs on localhost. In production: TLS everywhere, encryption at rest for the databases and index, and private networking between services."],
+
+["Reliability","What happens if the LLM is down?","Degraded mode: the baseline classifier labels the ticket and the top KB article's steps are shown word for word, marked clearly, and the status can't be OK. The analyst still gets useful evidence."],
+["Reliability","What are your fallback layers?","L1 normal. L2 one repair retry for bad JSON or invalid citations. L2b failover to the second provider. L3 degraded mode. L4 nothing retrieved, so escalate with clarifying questions."],
+["Reliability","What if ChromaDB fails to load?","The retriever falls back to an in-memory numpy backend with the same interface. If the embedding model can't load, a hashing vectoriser keeps search working, and the index records which embedder built it so queries stay consistent."],
+["Reliability","What is your single point of failure?","Today, the single API process and the local files. In production: multiple replicas, a replicated vector DB, managed PostgreSQL with backups, and two LLM providers."],
+["Reliability","How do you know the service is healthy?","GET /health reports the index size, the backend, the embedder and which LLM providers have keys. In production a load balancer would poll it and remove unhealthy replicas."],
+["Reliability","How did you make the demo independent of Wi-Fi?","The embedding model loads from the local cache first, and the demo tickets' LLM answers are cached on disk, so the full demo runs with no network."],
+["Reliability","What is idempotency here?","Each analysis gets a unique analysis_id, and feedback must reference an existing one (otherwise 404), so retries and feedback can't corrupt the audit trail."],
+
+["Data & storage","What data do you store and where?","ChromaDB holds vectors and metadata of past tickets and KB articles. A pickle holds BM25 data and texts. JSON files hold cached LLM answers. SQLite holds analyses, feedback and knowledge gaps. All of it is redacted."],
+["Data & storage","How do you handle a real dataset on the day?","The loader matches column names case-insensitively (text, description, category…), missing fields become empty, priority comes from rules if absent, and the taxonomy is rebuilt from the labels found. Then one command rebuilds the index."],
+["Data & storage","How do you avoid data leakage in evaluation?","20% of tickets are held out and never indexed; the baseline is trained only on the other 80%. Test tickets are new incoming tickets as far as the system is concerned."],
+["Data & storage","How do you keep the KB up to date?","Escalations with a weak KB match are logged as knowledge gaps. Those tell the team which articles to write next; a new article is searchable as soon as the index is updated."],
+["Data & storage","How do you back up and restore?","Today: the project folder (minus secrets) is zipped, and the index rebuilds from source data in 30 seconds. In production: managed database backups, vector DB snapshots, and the ability to rebuild indexes from the ticket system."],
+
+["Observability & cost","What do you monitor?","Per-stage timings on every request, provider and model per answer, status mix, escalation rate, knowledge gaps and feedback. In production: p95 latency, error rate, 429 count, tokens used, and the share of feedback marked incorrect."],
+["Observability & cost","How would you detect the model getting worse?","Watch the feedback 'incorrect' rate, the escalation rate and the dropped-claims rate over time, and re-run the fixed evaluation set after any prompt or model change, like a regression test."],
+["Observability & cost","How do you control cost?","Cost is mostly LLM tokens. We keep prompts small, cache answers, collapse duplicates, and in production would skip the LLM for very confident, well-supported cases or route easy tickets to a smaller, cheaper model."],
+["Observability & cost","What does your demo cost to run?","Nothing: free LLM tiers, open-source libraries, and a laptop CPU for embeddings."],
+["Observability & cost","How would you trace one request end to end?","Each analysis has an ID and per-stage timings. In production we'd add OpenTelemetry tracing so one request shows its time in retrieval, LLM and database across services."],
+["Observability & cost","What happens if a provider changes or retires a model?","It happened to us: our first model names returned 404. Model names are settings in .env, not code, so we switched in a minute. In production we'd pin a model version and test a new one with the evaluation set before switching."]
+];
+
+const KEY = "hld-known";
+const CATS = [...new Set(Q.map(q => q[0]))];
+let state = { cat: "All", search: "", quiz: false, unknownOnly: false, order: Q.map((_, i) => i), revealed: new Set() };
+let known = new Set();
+try { known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+const saveKnown = () => { try { localStorage.setItem(KEY, JSON.stringify([...known])); } catch (e) {} };
+
+const chips = document.getElementById("chips");
+["All", ...CATS].forEach(c => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = c === "All" ? `All ${Q.length}` : `${c} (${Q.filter(q => q[0] === c).length})`;
+  b.setAttribute("aria-pressed", c === "All");
+  b.onclick = () => { state.cat = c; chips.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); render(); };
+  chips.appendChild(b);
+});
+
+function render() {
+  const list = document.getElementById("qlist"); list.innerHTML = "";
+  const s = state.search.toLowerCase();
+  const shown = state.order.filter(i => {
+    const [c, q, a] = Q[i];
+    return (state.cat === "All" || c === state.cat) && (!s || q.toLowerCase().includes(s) || a.toLowerCase().includes(s))
+      && (!state.unknownOnly || !known.has(i));
+  });
+  document.getElementById("stats").textContent = `Showing ${shown.length} · You know ${known.size} of ${Q.length}`;
+  if (!shown.length) { list.innerHTML = '<div class="empty">No questions match. Clear the search or pick another topic.</div>'; return; }
+  shown.forEach(i => {
+    const [c, q, a] = Q[i];
+    const el = document.createElement("div"); el.className = "q" + (known.has(i) ? " known" : "");
+    const hidden = state.quiz && !state.revealed.has(i);
+    el.innerHTML = `<div class="qhead"><span class="qn">Q${i + 1}</span><div><span class="qc">${c}</span><span class="qt"></span></div>
+      <div class="qbtns">${state.quiz ? `<button type="button" data-a="rev">${hidden ? "Show answer" : "Hide"}</button>` : ""}
+      <button type="button" data-a="known" aria-pressed="${known.has(i)}">${known.has(i) ? "Known ✓" : "I know this"}</button></div></div>
+      <div class="qa"${hidden ? " hidden" : ""}></div>`;
+    el.querySelector(".qt").textContent = q;
+    el.querySelector(".qa").textContent = a;
+    el.querySelectorAll("button").forEach(b => b.onclick = () => {
+      if (b.dataset.a === "rev") { state.revealed.has(i) ? state.revealed.delete(i) : state.revealed.add(i); }
+      else { known.has(i) ? known.delete(i) : known.add(i); saveKnown(); }
+      render();
+    });
+    list.appendChild(el);
+  });
+}
+document.getElementById("qsearch").oninput = e => { state.search = e.target.value; render(); };
+document.getElementById("quiz").onclick = e => { state.quiz = !state.quiz; state.revealed.clear(); e.target.setAttribute("aria-pressed", state.quiz); e.target.textContent = state.quiz ? "Quiz mode: on" : "Quiz mode: hide answers"; render(); };
+document.getElementById("unknownOnly").onclick = e => { state.unknownOnly = !state.unknownOnly; e.target.setAttribute("aria-pressed", state.unknownOnly); render(); };
+document.getElementById("shuffle").onclick = () => { const o = state.order; for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } render(); };
+render();
+</script>
+<!-- diagrams: needs internet the first time; without it they show as text -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>if (window.mermaid) { const dark = matchMedia("(prefers-color-scheme: dark)").matches; mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "default" }); }</script>
+</body></html>
