@@ -26,9 +26,6 @@ ticket ─► redact PII ─► baseline classifier ─► hybrid retrieval ─�
 | Gate | `app/confidence.py` | `0.35·LLM + 0.40·retrieval + 0.25·agreement`; P1, dropped claims or knowledge gaps force review/escalation |
 | API / UI | `app/api.py`, `ui/app.py` | FastAPI + Streamlit; feedback buttons; audit export |
 
-If no LLM key is set or every provider fails, the app runs in **degraded mode**: baseline classification plus the
-top KB article's steps verbatim, capped at NEEDS_REVIEW. It never crashes for lack of an LLM.
-
 ## Run it (Windows)
 
 ```bash
@@ -43,9 +40,6 @@ streamlit run ui/app.py           # UI: http://localhost:8501 (works even if the
 
 Optional: `python scripts/prewarm_cache.py` (cache the demo tickets), `python -m eval.run_eval --llm 30`
 (evaluation with an LLM sample), `pytest -q` (29 tests, no network needed).
-
-Use a real dataset: `python -m app.build_index --dataset path/to/tickets.csv`. Columns are matched by name
-(`app/data/loader.py`, `COLUMN_MAP`); the taxonomy is rebuilt from the labels found.
 
 ## API
 
@@ -67,15 +61,4 @@ Use a real dataset: `python -m app.build_index --dataset path/to/tickets.csv`. C
   P2, single user → P3, how-to → P4) and the LLM may only raise it.
 - **Free-tier LLMs** may use submitted data under their terms, which is another reason everything is redacted first.
 - Out of scope: auto-closing tickets, remediation actions, ITSM write-back, real RBAC.
-
-## Team
-
-Four roles; full onboarding (functionality → architecture → code) in [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md).
-
-| Role | Branch | Owns |
-|---|---|---|
-| 1: Data & Eval | `feat/data-eval` | `data/`, `app/data/loader.py`, `app/taxonomy.py`, `app/baseline.py`, `app/build_index.py`, `eval/`, `EVALUATION.md` |
-| 2: Retrieval & privacy | `feat/retrieval` | `app/redact.py`, `app/embeddings.py`, `app/retriever.py` |
-| 3: LLM & trust | `feat/llm-trust` | `app/llm_provider.py`, `app/llm.py`, `app/validator.py`, `app/confidence.py`, `app/pipeline.py` |
-| 4: API, UI & audit | `feat/api-ui` | `app/api.py`, `app/db.py`, `ui/app.py`, `README.md`, `scripts/` |
-| Shared | — | `app/schema.py`, `app/config.py`, `tests/` (change only after telling the team) |
+ 
